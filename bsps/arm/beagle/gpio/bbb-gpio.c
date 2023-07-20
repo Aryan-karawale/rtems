@@ -34,7 +34,23 @@
  * After support gets added if condition should be removed
  */
 #if IS_AM335X
+/* 
+struct that helps store the values from gpio fdt 
+offset - offset from the base address
+base - base address of GPIO register
+irq - interrupt vector numbers associated with each gpio bank
+intr - type of interrupt associatec with the GPIO pin
+mode - mode of the GPIO pin
+*/
+typedef struct bbb_gpio
+{
+  int offset;
+  uint32_t base;
+  rtems_vector_number irq;
+  rtems_gpio_interrupt intr;
+  int mode;
 
+}bbb_gpio;
 static const uint32_t gpio_bank_addrs[] = 
   { AM335X_GPIO0_BASE,
   	AM335X_GPIO1_BASE, 
@@ -310,6 +326,103 @@ rtems_status_code rtems_gpio_bsp_specific_group_operation(
   void *arg
 ) {
   return RTEMS_NOT_DEFINED;
+}
+// function used to initalize the fdt (gpio)
+/*
+@param
+* node -> node of the device tree
+* pin -> the bbb_gpio struct in which the values from fdt will be stored
+* node_offset -> the offest in each bank
+* prop -> property associated with the node
+* intr_mode -> type of interrupt associatec with the GPIO pin
+* pin_mode -> mode of the GPIO pin
+*/
+rtems_status_code gpio_init_from_property(
+  phandle_t node,
+  struct bbb_gpio *pin, 
+  int node_offset,
+  const char *prop,
+  rtems_gpio_interrupt intr_mode,
+  int pin_mode
+)
+{
+  rtems_status_code   status = RTEMS_SUCCESSFUL;
+
+  const char *p;
+  int err;
+  char * gpio_bank;
+  int gpio_bank_no;
+  char * gpio;
+  
+  pin -> offset = node_offset;
+  pin -> intr = intr_mode;
+  err = rtems_ofw_get_prop(node, prop, (void *)p, sizeof(p));
+  if(err<0 || err > 32){
+   status = RTEMS_UNSATISFIED;
+  }
+  err = rtems_ofw_get_prop(node,"ti,hwmods",(void *)gpio_bank,sizeof(gpio_bank) );
+  if(err<0 || err > 5){
+   status = RTEMS_UNSATISFIED;
+  }
+  if(strcmp(gpio_bank,"gpio1")){
+    pin -> base = AM335X_GPIO0_BASE;
+    pin -> irq = AM335X_INT_GPIOINT0A;
+  }
+  else if (strcmp(gpio_bank,"gpio2")){
+    pin -> base = AM335X_GPIO2_BASE;
+    pin -> irq = AM335X_INT_GPIOINT2A;
+  }
+  else if (strcmp(gpio_bank,"gpio3")){
+    pin -> base = AM335X_GPIO3_BASE;
+    pin -> irq = AM335X_INT_GPIOINT3A;
+  }
+  else{
+    status = RTEMS_UNSATISFIED;
+  }
+  status = rtems_gpio_bsp_enable_interrupt(pin -> base , pin -> offset , pin -> intr );
+  if(pin_mode == 1){
+    pin -> mode = pin_mode;
+    bbb_select_pin_function(pin -> base, pin -> offset, BBB_DIGITAL_IN);
+  }
+  else if(pin_mode == 2){
+    pin -> mode = pin_mode;
+    bbb_select_pin_function(pin -> base, pin -> offset, BBB_DIGITAL_OUT);
+  }
+  else{
+    status = RTEMS_UNSATISFIED;
+  } 
+  
+  return status;
+  
+}
+void beagle_gpio_init(phandle_t node)
+{
+  int                   err;
+  rtems_vector_number   irq;
+  rtems_ofw_memory_area reg;
+  bbb_gpio *gpio;
+  rtems_status_code sc;
+ 
+
+  if (!rtems_ofw_is_node_compatible(node, "ti,omap4-gpio"))
+    /* We cannot handle this device */
+    printk("Device is not compatable");
+    return ;
+
+
+  err = rtems_ofw_get_interrupts(node, &irq, sizeof(irq));
+  if (err < 1) {
+    printk("gpio: cannot register device, irq missing in device tree\n");
+    return ;
+  }
+
+  err = rtems_ofw_get_reg(node, &reg, sizeof(reg));
+  if (err <= 0) {
+    printk("gpio: cannot register device, regs field missing\n");
+    return ;
+  }
+  // sc = gpio_init_from_property(node,9,"gpios",RISING_EDGE,BBB_DIGITAL_IN)
+ 
 }
 
 #endif /* IS_AM335X */

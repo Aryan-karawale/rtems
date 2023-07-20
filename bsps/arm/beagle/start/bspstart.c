@@ -88,6 +88,7 @@ static void traverse_fdt_nodes( phandle_t node )
      */
     beagle_pinmux_init(node);
     beagle_i2c_init(node);
+    beagle_gpio_init(node);
   }
 }
 
