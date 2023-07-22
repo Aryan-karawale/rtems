@@ -49,6 +49,7 @@ typedef struct bbb_gpio
   rtems_vector_number irq;
   rtems_gpio_interrupt intr;
   int mode;
+  char * property;
 
 }bbb_gpio;
 static const uint32_t gpio_bank_addrs[] = 
@@ -353,32 +354,41 @@ rtems_status_code gpio_init_from_property(
   char * gpio_bank;
   int gpio_bank_no;
   char * gpio;
+  int irq_no;
   
   pin -> offset = node_offset;
   pin -> intr = intr_mode;
   err = rtems_ofw_get_prop(node, prop, (void *)p, sizeof(p));
-  if(err<0 || err > 32){
+  if(err<0 || err > MAX_PROPERTY_LEN){
    status = RTEMS_UNSATISFIED;
   }
+  pin -> property = p;
   err = rtems_ofw_get_prop(node,"ti,hwmods",(void *)gpio_bank,sizeof(gpio_bank) );
   if(err<0 || err > 5){
    status = RTEMS_UNSATISFIED;
   }
-  if(strcmp(gpio_bank,"gpio1")){
+  if(strcmp(gpio_bank,"gpio0")){
     pin -> base = AM335X_GPIO0_BASE;
-    pin -> irq = AM335X_INT_GPIOINT0A;
+  }
+  else if (strcmp(gpio_bank,"gpio1")){
+    pin -> base = AM335X_GPIO1_BASE;
   }
   else if (strcmp(gpio_bank,"gpio2")){
     pin -> base = AM335X_GPIO2_BASE;
-    pin -> irq = AM335X_INT_GPIOINT2A;
   }
   else if (strcmp(gpio_bank,"gpio3")){
     pin -> base = AM335X_GPIO3_BASE;
-    pin -> irq = AM335X_INT_GPIOINT3A;
   }
   else{
     status = RTEMS_UNSATISFIED;
   }
+   
+  err = rtems_ofw_get_prop(node,"interrupts", (void *)irq_no, sizeof(irq_no));
+  if(err<0 ){
+   status = RTEMS_UNSATISFIED;
+  }
+  
+
   status = rtems_gpio_bsp_enable_interrupt(pin -> base , pin -> offset , pin -> intr );
   if(pin_mode == 1){
     pin -> mode = pin_mode;

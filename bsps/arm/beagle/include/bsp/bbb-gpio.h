@@ -37,6 +37,7 @@ extern "C" {
 #define BBB_MUXMODE(X) (X & 0x7)
 #define BBB_RXACTIVE (1 << 5)
 #define BBB_SLEWCTRL (1 << 6)
+#define MAX_PROPERTY_LEN 31
 
 #ifdef __cplusplus
 }
